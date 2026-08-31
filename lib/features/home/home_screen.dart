@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookswap/core/supabase_client.dart';
+import 'package:bookswap/features/auth/auth_provider.dart';
 
-/// Placeholder home screen for Stage 1.
+/// Placeholder home screen for Stage 1 & 2.
 ///
-/// Shows a live Supabase connection status check.
-/// This screen will be replaced by the real home/browse screen in Stage 4.
-class HomeScreen extends StatefulWidget {
+/// Shows Supabase connection status + signed-in user info.
+/// Will be replaced by the real browse screen in Stage 4.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   _ConnectionStatus _status = _ConnectionStatus.checking;
 
   @override
@@ -23,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _checkConnection() async {
     try {
-      // Ping the cities table — a lightweight query that proves DB connectivity.
       await SupabaseClientProvider.client
           .from('cities')
           .select('name')
@@ -37,13 +38,27 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final session = ref.watch(authSessionProvider).valueOrNull;
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('BookSwap Ethiopia'),
+        actions: [
+          if (session != null)
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Sign out',
+              onPressed: () async {
+                await AuthService.signOut();
+              },
+            ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // App icon placeholder
             Container(
               width: 88,
               height: 88,
@@ -62,7 +77,6 @@ class _HomeScreenState extends State<HomeScreen> {
               'BookSwap Ethiopia',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -72,8 +86,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 32),
             _buildStatusWidget(context),
+            if (session != null) ...[
+              const SizedBox(height: 24),
+              Chip(
+                avatar: const Icon(Icons.person_outline_rounded, size: 18),
+                label: Text(session.user.email ?? 'Signed in'),
+              ),
+            ],
           ],
         ),
       ),
@@ -98,12 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                'Connecting to Supabase…',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+              const Text('Connecting to Supabase…'),
             ],
           ),
         _ConnectionStatus.connected => _StatusChip(
@@ -116,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _ConnectionStatus.error => _StatusChip(
             key: const ValueKey('error'),
             icon: Icons.error_rounded,
-            label: 'Connection failed — check keys',
+            label: 'Connection failed',
             color: Colors.red.shade700,
             backgroundColor: Colors.red.shade50,
           ),
@@ -156,10 +172,7 @@ class _StatusChip extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
         ],
       ),

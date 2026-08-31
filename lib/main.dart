@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookswap/core/env.dart';
 import 'package:bookswap/core/supabase_client.dart';
-import 'package:bookswap/features/home/home_screen.dart';
+import 'package:bookswap/core/router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,12 +19,14 @@ Future<void> main() async {
   );
 }
 
-class BookSwapApp extends StatelessWidget {
+class BookSwapApp extends ConsumerWidget {
   const BookSwapApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
       title: 'BookSwap Ethiopia',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -35,7 +37,7 @@ class BookSwapApp extends StatelessWidget {
         ),
         fontFamily: 'NotoSansEthiopic',
       ),
-      home: const HomeScreen(),
+      routerConfig: router,
     );
   }
 }
