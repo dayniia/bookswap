@@ -1,9 +1,9 @@
-# BookSwap Ethiopia — Supabase Postgres Schema (v1 / MVP)
-# Designed for: free direct 1:1 swaps, English + Amharic, city-scoped but
-# city is data (not hardcoded), Telegram + email auth.
-#
-# Run this in Supabase SQL Editor → New query → Run.
-# The 5 launch cities are seeded at the bottom — no extra seeding step needed.
+-- BookSwap Ethiopia — Supabase Postgres Schema (v1 / MVP)
+-- Designed for: free direct 1:1 swaps, English + Amharic, city-scoped but
+-- city is data (not hardcoded), Telegram + email auth.
+--
+-- Run this in Supabase SQL Editor → New query → Run.
+-- The 5 launch cities are seeded at the bottom — no extra seeding step needed.
 
 -- ============================================================
 -- 1. Reference data: cities
