@@ -13,7 +13,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/home',
     redirect: (context, state) async {
-      final session = authState.valueOrNull;
+      final session = authState.value;
       final isSignedIn = session != null;
       final isOnAuth = state.matchedLocation == '/auth';
       final isOnSetup = state.matchedLocation == '/profile-setup';

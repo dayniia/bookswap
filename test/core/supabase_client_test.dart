@@ -19,7 +19,14 @@ void main() {
     );
 
     expect(
-      () async => Supabase.initialize(url: url, anonKey: anonKey),
+      () async {
+        try {
+          await Supabase.initialize(url: url, anonKey: anonKey);
+        } catch (e) {
+          // Already initialized by another test file — that's fine.
+          if (!e.toString().contains('already')) rethrow;
+        }
+      },
       returnsNormally,
     );
   });

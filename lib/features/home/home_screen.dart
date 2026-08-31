@@ -38,7 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final session = ref.watch(authSessionProvider).valueOrNull;
+    final session = ref.watch(authSessionProvider).value;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
