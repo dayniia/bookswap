@@ -13,25 +13,18 @@ final needsProfileSetupProvider = FutureProvider<bool>((ref) async {
   final session = await ref.watch(authSessionProvider.future);
   if (session == null) return false;
 
-  final rows = await SupabaseClientProvider.client
+  final row = await SupabaseClientProvider.client
       .from('profiles')
       .select('id')
       .eq('id', session.user.id)
       .maybeSingle();
 
-  return rows == null;
+  return row == null;
 });
 
-/// Auth operations — sign in, sign out.
+/// Shared auth operations.
 class AuthService {
   AuthService._();
-
-  static Future<void> sendMagicLink(String email) async {
-    await SupabaseClientProvider.client.auth.signInWithOtp(
-      email: email,
-      emailRedirectTo: 'io.supabase.bookswap://login-callback',
-    );
-  }
 
   static Future<void> signOut() async {
     await SupabaseClientProvider.client.auth.signOut();

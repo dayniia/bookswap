@@ -65,7 +65,7 @@ class _AuthGatedHome extends ConsumerWidget {
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => const HomeScreen(),
+      error: (_, _) => const HomeScreen(),
     );
   }
 }

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bookswap/features/auth/auth_provider.dart';
+import 'package:bookswap/features/auth/google_auth_service.dart';
 
-/// Sign-in screen — email magic-link only (Telegram button added in Stage 3).
+/// Sign-in screen — Google Sign-In + Telegram.
+/// No email/password. No magic-link.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -11,34 +12,27 @@ class AuthScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
-  final _emailController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool _loading = false;
-  bool _sent = false;
+  bool _googleLoading = false;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _sendMagicLink() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
+  Future<void> _signInWithGoogle() async {
+    setState(() => _googleLoading = true);
     try {
-      await AuthService.sendMagicLink(_emailController.text.trim());
-      if (mounted) setState(() => _sent = true);
+      await GoogleAuthService.signIn();
+      // On Android the Supabase session fires automatically through the
+      // authSessionProvider stream → router redirects to /home.
+      // On Web the browser navigates away entirely — nothing more to do here.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Google sign-in failed: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _googleLoading = false);
     }
   }
 
@@ -54,9 +48,75 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 400),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 400),
-                child: _sent ? _buildSentState(theme) : _buildForm(theme, colors),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // App icon
+                  Center(
+                    child: Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.primary.withValues(alpha: 0.15),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.menu_book_rounded,
+                        size: 48,
+                        color: colors.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  Text(
+                    'BookSwap Ethiopia',
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colors.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Swap books with readers in your city.\nNo money. No shipping. Pure swap.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 48),
+
+                  // ── Google Sign-In ──────────────────────────────────
+                  _GoogleSignInButton(
+                    loading: _googleLoading,
+                    onPressed: _signInWithGoogle,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Telegram (Stage 3) ──────────────────────────────
+                  _TelegramSignInButton(
+                    onPressed: null, // enabled in Stage 3
+                  ),
+                  const SizedBox(height: 32),
+
+                  Text(
+                    'By signing in you agree to swap books honestly\nand rate your partners fairly.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
           ),
@@ -64,164 +124,149 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       ),
     );
   }
+}
 
-  Widget _buildForm(ThemeData theme, ColorScheme colors) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+// ────────────────────────────────────────────────────────────────────────────
+// Sub-widgets
+// ────────────────────────────────────────────────────────────────────────────
+
+class _GoogleSignInButton extends StatelessWidget {
+  const _GoogleSignInButton({
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: loading ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline,
+          width: 1.5,
+        ),
+      ),
+      child: loading
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Google G logo (painted manually — no image asset needed)
+                _GoogleLogo(),
+                const SizedBox(width: 12),
+                const Text(
+                  'Continue with Google',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _GoogleLogo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(22, 22),
+      painter: _GoogleLogoPainter(),
+    );
+  }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width / 2;
+
+    // Simplified coloured G arcs
+    final paint = Paint()..style = PaintingStyle.stroke..strokeWidth = 3;
+
+    // Blue arc (top-right)
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r - 1.5),
+        -0.5, 2.1, false, paint);
+
+    // Green arc (bottom-right)
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r - 1.5),
+        1.6, 1.5, false, paint);
+
+    // Yellow arc (bottom-left)
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r - 1.5),
+        3.1, 1.1, false, paint);
+
+    // Red arc (top-left)
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(Rect.fromCircle(center: Offset(cx, cy), radius: r - 1.5),
+        4.2, 1.3, false, paint);
+
+    // Horizontal bar of G
+    paint
+      ..color = const Color(0xFF4285F4)
+      ..strokeWidth = 2.5;
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(size.width - 2, cy),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _TelegramSignInButton extends StatelessWidget {
+  const _TelegramSignInButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: onPressed == null
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : const Color(0xFF2AABEE), // Telegram blue
+        foregroundColor: onPressed == null
+            ? Theme.of(context).colorScheme.onSurfaceVariant
+            : Colors.white,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Logo
-          Center(
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                Icons.menu_book_rounded,
-                size: 44,
-                color: colors.onPrimaryContainer,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
+          const Icon(Icons.send_rounded, size: 20),
+          const SizedBox(width: 12),
           Text(
-            'BookSwap Ethiopia',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colors.onSurface,
+            onPressed == null
+                ? 'Telegram login — coming in Stage 3'
+                : 'Continue with Telegram',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Sign in to swap books with readers in your city',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 40),
-
-          // Email field
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            autocorrect: false,
-            decoration: InputDecoration(
-              labelText: 'Email address',
-              hintText: 'you@example.com',
-              prefixIcon: const Icon(Icons.email_outlined),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Enter your email';
-              if (!v.contains('@')) return 'Enter a valid email';
-              return null;
-            },
-            onFieldSubmitted: (_) => _sendMagicLink(),
-          ),
-          const SizedBox(height: 20),
-
-          // Magic link button
-          FilledButton.icon(
-            onPressed: _loading ? null : _sendMagicLink,
-            icon: _loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.send_rounded),
-            label: Text(_loading ? 'Sending…' : 'Send magic link'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'We\'ll email you a sign-in link — no password needed.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          // Telegram button placeholder — populated in Stage 3
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: null, // Stage 3
-            icon: const Icon(Icons.send), // Telegram icon
-            label: const Text('Log in with Telegram'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Telegram login coming soon',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSentState(ThemeData theme) {
-    return Column(
-      key: const ValueKey('sent'),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: Colors.green.shade50,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(Icons.mark_email_read_rounded,
-              size: 44, color: Colors.green.shade700),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          'Check your inbox!',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'A magic link has been sent to\n${_emailController.text.trim()}\n\nTap the link in the email to sign in.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 32),
-        TextButton(
-          onPressed: () => setState(() => _sent = false),
-          child: const Text('Use a different email'),
-        ),
-      ],
     );
   }
 }

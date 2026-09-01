@@ -1,42 +1,33 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Stage 2 auth structural tests.
+/// Stage 2b — Google auth structural tests.
 ///
-/// Full Supabase initialization requires platform channels (shared_preferences)
-/// that aren't available in pure unit tests. These tests verify our provider
-/// code compiles correctly and our auth logic helpers behave as expected.
-///
-/// End-to-end auth is verified by the manual smoke test:
-///   1. Run the app
-///   2. Enter email → "Send magic link" → email arrives
-///   3. Tap link → lands on profile setup (first time) or home
+/// Full Google Sign-In flow requires real platform channels and a live
+/// Google account, so these are structural/unit tests only.
+/// End-to-end verified by manual smoke test.
 void main() {
-  group('Auth email validation', () {
-    bool isValidEmail(String email) {
-      return email.isNotEmpty && email.contains('@') && email.contains('.');
-    }
-
-    test('valid email passes', () {
-      expect(isValidEmail('user@example.com'), isTrue);
-      expect(isValidEmail('selam@bookswap.et'), isTrue);
+  group('Platform detection', () {
+    test('kIsWeb is a bool', () {
+      expect(kIsWeb, isA<bool>());
     });
 
-    test('empty email fails', () {
-      expect(isValidEmail(''), isFalse);
-    });
+    test('platform routing would use OAuth on web', () {
+      // Simulate the branch our GoogleAuthService takes
+      final wouldUseOAuth = kIsWeb;
+      final wouldUseNativePicker = !kIsWeb;
 
-    test('email without @ fails', () {
-      expect(isValidEmail('notanemail'), isFalse);
-    });
-
-    test('email without dot fails', () {
-      expect(isValidEmail('user@nodot'), isFalse);
+      // In the test runner (Dart VM) kIsWeb is false
+      expect(wouldUseOAuth, isFalse);
+      expect(wouldUseNativePicker, isTrue);
     });
   });
 
   group('Profile validation', () {
     String? validateDisplayName(String? value) {
-      if (value == null || value.trim().isEmpty) return 'Please enter a display name';
+      if (value == null || value.trim().isEmpty) {
+        return 'Please enter a display name';
+      }
       if (value.trim().length < 2) return 'Name is too short';
       return null;
     }

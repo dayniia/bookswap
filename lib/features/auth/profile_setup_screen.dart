@@ -145,7 +145,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     _loadingCities
                         ? const Center(child: CircularProgressIndicator())
                         : DropdownButtonFormField<String>(
-                            value: _selectedCityId,
+                            initialValue: _selectedCityId,
                             decoration: InputDecoration(
                               labelText: 'City',
                               prefixIcon:
