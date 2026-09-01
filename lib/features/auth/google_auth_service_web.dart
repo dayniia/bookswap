@@ -7,12 +7,14 @@ class GoogleAuthService {
   GoogleAuthService._();
 
   static Future<void> signIn() async {
-    // Redirects the browser to Google, then back to the app via Supabase callback.
-    // Make sure http://localhost:* is in Supabase → Auth → URL Configuration → Redirect URLs.
+    // Pass the current page URL so Supabase redirects back to exactly
+    // where the app is running (correct localhost port every time).
+    // Requires http://localhost:* in Supabase → Auth → URL Configuration → Redirect URLs.
+    final redirectTo = Uri.base.toString();
+
     await SupabaseClientProvider.client.auth.signInWithOAuth(
       OAuthProvider.google,
-      // null = use current page URL as redirect target (works for localhost dev)
-      redirectTo: null,
+      redirectTo: redirectTo,
     );
   }
 
