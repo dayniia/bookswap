@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bookswap/core/supabase_client.dart';
 import 'package:bookswap/features/listings/listings_provider.dart';
 
@@ -225,11 +226,26 @@ class _ListingBody extends ConsumerWidget {
                         ),
                       );
                       if (confirm == true && context.mounted) {
-                        await SupabaseClientProvider.client
-                            .from('listings')
-                            .update({'status': 'removed'})
-                            .eq('id', listing['id'] as String);
-                        if (context.mounted) Navigator.of(context).pop();
+                        try {
+                          await SupabaseClientProvider.client
+                              .from('listings')
+                              .update({'status': 'removed'})
+                              .eq('id', listing['id'] as String);
+                          // Refresh browse grid
+                          ref.invalidate(listingsProvider);
+                          if (context.mounted) context.pop();
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to remove: $e'),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.error,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        }
                       }
                     },
                     icon: const Icon(Icons.delete_outline_rounded),

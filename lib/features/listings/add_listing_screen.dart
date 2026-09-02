@@ -64,15 +64,19 @@ class _AddListingScreenState extends ConsumerState<AddListingScreen> {
     final urls = <String>[];
     for (final file in _pickedPhotos) {
       final bytes = await file.readAsBytes();
-      final ext = file.name.split('.').last.toLowerCase();
+      // Sanitize extension — default to jpg if name has no clear extension
+      final parts = file.name.split('.');
+      final ext = parts.length > 1 ? parts.last.toLowerCase() : 'jpg';
+      final safeExt = RegExp(r'^[a-z0-9]+$').hasMatch(ext) ? ext : 'jpg';
+      // Path: {userId}/{timestamp}_{index}.{ext}
       final path =
-          '$userId/${DateTime.now().millisecondsSinceEpoch}_${urls.length}.$ext';
+          '$userId/${DateTime.now().millisecondsSinceEpoch}_${urls.length}.$safeExt';
       await SupabaseClientProvider.client.storage
           .from('listing-photos')
           .uploadBinary(
             path,
             Uint8List.fromList(bytes),
-            fileOptions: FileOptions(contentType: 'image/$ext'),
+            fileOptions: FileOptions(contentType: 'image/$safeExt'),
           );
       final url = SupabaseClientProvider.client.storage
           .from('listing-photos')
