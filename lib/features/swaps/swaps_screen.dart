@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bookswap/features/swaps/swap_provider.dart';
 
 /// Full-page list of incoming and outgoing swap requests.
@@ -162,6 +163,25 @@ class _IncomingCard extends StatelessWidget {
                 ],
               ),
             ],
+            if (status == 'accepted') ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => context.push(
+                    '/chat/${request['id']}'
+                    '?otherName=${Uri.encodeComponent(requesterName)}'
+                    '&book=${Uri.encodeComponent(bookTitle)}',
+                  ),
+                  icon: const Icon(Icons.chat_rounded, size: 18),
+                  label: const Text('Open chat'),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -273,6 +293,25 @@ class _OutgoingCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10)),
                   ),
                   child: const Text('Cancel request'),
+                ),
+              ),
+            ],
+            if (status == 'accepted') ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => context.push(
+                    '/chat/${request['id']}'
+                    '?otherName=${Uri.encodeComponent(ownerName)}'
+                    '&book=${Uri.encodeComponent(bookTitle)}',
+                  ),
+                  icon: const Icon(Icons.chat_rounded, size: 18),
+                  label: const Text('Open chat'),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
               ),
             ],

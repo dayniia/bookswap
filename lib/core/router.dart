@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bookswap/features/auth/auth_provider.dart';
 import 'package:bookswap/features/auth/auth_screen.dart';
 import 'package:bookswap/features/auth/profile_setup_screen.dart';
+import 'package:bookswap/features/chat/chat_screen.dart';
 import 'package:bookswap/features/listings/add_listing_screen.dart';
 import 'package:bookswap/features/listings/browse_screen.dart';
 import 'package:bookswap/features/listings/listing_detail_screen.dart';
@@ -49,6 +50,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/swaps',
         builder: (_, __) => const SwapsScreen(),
+      ),
+      GoRoute(
+        path: '/chat/:swapId',
+        builder: (_, state) => ChatScreen(
+          swapRequestId: state.pathParameters['swapId']!,
+          otherUserName:
+              state.uri.queryParameters['otherName'] ?? 'Partner',
+          bookTitle:
+              state.uri.queryParameters['book'] ?? 'Book',
+        ),
       ),
     ],
   );
