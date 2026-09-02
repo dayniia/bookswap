@@ -32,6 +32,28 @@ final needsProfileSetupProvider = FutureProvider<bool>((ref) async {
 class AuthService {
   AuthService._();
 
+  /// Create a new account with email + password.
+  static Future<void> signUp({
+    required String email,
+    required String password,
+  }) async {
+    await SupabaseClientProvider.client.auth.signUp(
+      email: email,
+      password: password,
+    );
+  }
+
+  /// Sign in with existing email + password.
+  static Future<void> signInWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    await SupabaseClientProvider.client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+  }
+
   static Future<void> signOut() async {
     await SupabaseClientProvider.client.auth.signOut();
   }

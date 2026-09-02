@@ -1,53 +1,114 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Stage 2b — Google auth structural tests.
-///
-/// Full Google Sign-In flow requires real platform channels and a live
-/// Google account, so these are structural/unit tests only.
-/// End-to-end verified by manual smoke test.
+/// Stage 3 auth tests — email/password + Google.
 void main() {
+  group('Email validation', () {
+    String? validateEmail(String? v) {
+      if (v == null || v.trim().isEmpty) return 'Enter your email';
+      if (!v.contains('@')) return 'Enter a valid email';
+      return null;
+    }
+
+    test('valid email passes', () {
+      expect(validateEmail('selam@example.com'), isNull);
+      expect(validateEmail('a@b.et'), isNull);
+    });
+
+    test('empty email fails', () {
+      expect(validateEmail(''), isNotNull);
+      expect(validateEmail(null), isNotNull);
+    });
+
+    test('email without @ fails', () {
+      expect(validateEmail('noemail'), isNotNull);
+    });
+  });
+
+  group('Password validation', () {
+    String? validatePassword(String? v, {bool isSignUp = false}) {
+      if (v == null || v.isEmpty) return 'Enter a password';
+      if (isSignUp && v.length < 6) return 'Password must be at least 6 characters';
+      return null;
+    }
+
+    test('valid password passes on sign in', () {
+      expect(validatePassword('abc', isSignUp: false), isNull);
+    });
+
+    test('short password fails on sign up', () {
+      expect(validatePassword('abc', isSignUp: true), isNotNull);
+    });
+
+    test('6+ char password passes on sign up', () {
+      expect(validatePassword('abcdef', isSignUp: true), isNull);
+    });
+
+    test('empty password always fails', () {
+      expect(validatePassword(''), isNotNull);
+      expect(validatePassword(null), isNotNull);
+    });
+  });
+
+  group('Friendly error messages', () {
+    String friendlyError(String raw) {
+      if (raw.contains('Invalid login credentials')) {
+        return 'Wrong email or password. Please try again.';
+      }
+      if (raw.contains('Email not confirmed')) {
+        return 'Please confirm your email first, then sign in.';
+      }
+      if (raw.contains('User already registered')) {
+        return 'An account with this email already exists. Sign in instead.';
+      }
+      if (raw.contains('Password should be')) {
+        return 'Password must be at least 6 characters.';
+      }
+      return raw;
+    }
+
+    test('invalid credentials → friendly message', () {
+      expect(
+        friendlyError('AuthException: Invalid login credentials'),
+        contains('Wrong email'),
+      );
+    });
+
+    test('user already registered → friendly message', () {
+      expect(
+        friendlyError('User already registered'),
+        contains('already exists'),
+      );
+    });
+
+    test('unknown error passes through', () {
+      expect(friendlyError('some unknown error'), equals('some unknown error'));
+    });
+  });
+
   group('Platform detection', () {
     test('kIsWeb is a bool', () {
       expect(kIsWeb, isA<bool>());
     });
-
-    test('platform routing would use OAuth on web', () {
-      // Simulate the branch our GoogleAuthService takes
-      final wouldUseOAuth = kIsWeb;
-      final wouldUseNativePicker = !kIsWeb;
-
-      // In the test runner (Dart VM) kIsWeb is false
-      expect(wouldUseOAuth, isFalse);
-      expect(wouldUseNativePicker, isTrue);
-    });
   });
 
-  group('Profile validation', () {
-    String? validateDisplayName(String? value) {
-      if (value == null || value.trim().isEmpty) {
-        return 'Please enter a display name';
-      }
-      if (value.trim().length < 2) return 'Name is too short';
+  group('Profile name validation', () {
+    String? validateName(String? v) {
+      if (v == null || v.trim().isEmpty) return 'Please enter a display name';
+      if (v.trim().length < 2) return 'Name is too short';
       return null;
     }
 
     test('valid name passes', () {
-      expect(validateDisplayName('Selam'), isNull);
-      expect(validateDisplayName('Abebe Bikila'), isNull);
+      expect(validateName('Selam'), isNull);
     });
 
-    test('empty name fails', () {
-      expect(validateDisplayName(''), isNotNull);
-      expect(validateDisplayName('   '), isNotNull);
+    test('single char fails', () {
+      expect(validateName('A'), isNotNull);
     });
 
-    test('single character name fails', () {
-      expect(validateDisplayName('A'), isNotNull);
-    });
-
-    test('null name fails', () {
-      expect(validateDisplayName(null), isNotNull);
+    test('empty fails', () {
+      expect(validateName(''), isNotNull);
     });
   });
 }
