@@ -13,13 +13,19 @@ final needsProfileSetupProvider = FutureProvider<bool>((ref) async {
   final session = await ref.watch(authSessionProvider.future);
   if (session == null) return false;
 
-  final row = await SupabaseClientProvider.client
-      .from('profiles')
-      .select('id')
-      .eq('id', session.user.id)
-      .maybeSingle();
+  try {
+    final row = await SupabaseClientProvider.client
+        .from('profiles')
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
 
-  return row == null;
+    return row == null;
+  } catch (_) {
+    // Can fire during OAuth redirect before the client is fully ready.
+    // Return false (go to home) — the stream will re-trigger once stable.
+    return false;
+  }
 });
 
 /// Shared auth operations.

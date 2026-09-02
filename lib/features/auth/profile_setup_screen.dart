@@ -57,7 +57,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     final user = SupabaseClientProvider.client.auth.currentUser!;
     try {
-      await SupabaseClientProvider.client.from('profiles').insert({
+      // Use upsert so re-running profile setup (or re-signing in with an
+      // existing account) never hits a duplicate key constraint.
+      await SupabaseClientProvider.client.from('profiles').upsert({
         'id': user.id,
         'display_name': _nameController.text.trim(),
         'city_id': _selectedCityId,
@@ -65,7 +67,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             ? null
             : _areaController.text.trim(),
         'language_pref': 'en',
-      });
+      }, onConflict: 'id');
 
       if (mounted) {
         // Navigate to home after profile created
