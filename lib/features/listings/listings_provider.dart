@@ -42,19 +42,32 @@ class ListingFilter {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Mutable filter state — updated from the browse screen UI.
+class ListingFilterNotifier extends Notifier<ListingFilter> {
+  @override
+  ListingFilter build() => const ListingFilter();
+
+  void update(ListingFilter Function(ListingFilter) fn) {
+    state = fn(state);
+  }
+}
+
 final listingFilterProvider =
-    StateProvider<ListingFilter>((ref) => const ListingFilter());
+    NotifierProvider<ListingFilterNotifier, ListingFilter>(
+  ListingFilterNotifier.new,
+);
 
 /// All available listings, re-fetching whenever the filter changes.
 final listingsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final filter = ref.watch(listingFilterProvider);
 
+  // Build the filter query first (PostgrestFilterBuilder),
+  // then call .order() last (returns PostgrestTransformBuilder which
+  // no longer accepts filter methods).
   var query = SupabaseClientProvider.client
       .from('listings')
       .select('id, title, author, language, condition, photo_urls, created_at, '
           'city_id, cities(name), owner_id, profiles(display_name)')
-      .eq('status', 'available')
-      .order('created_at', ascending: false);
+      .eq('status', 'available');
 
   if (filter.cityId != null) {
     query = query.eq('city_id', filter.cityId!);
@@ -68,7 +81,7 @@ final listingsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async 
     );
   }
 
-  final rows = await query;
+  final rows = await query.order('created_at', ascending: false);
   return List<Map<String, dynamic>>.from(rows);
 });
 
