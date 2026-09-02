@@ -7,6 +7,7 @@ import 'package:bookswap/features/auth/profile_setup_screen.dart';
 import 'package:bookswap/features/listings/add_listing_screen.dart';
 import 'package:bookswap/features/listings/browse_screen.dart';
 import 'package:bookswap/features/listings/listing_detail_screen.dart';
+import 'package:bookswap/features/swaps/swaps_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authSessionProvider);
@@ -44,6 +45,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/listings/:id',
         builder: (_, state) =>
             ListingDetailScreen(listingId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/swaps',
+        builder: (_, __) => const SwapsScreen(),
       ),
     ],
   );

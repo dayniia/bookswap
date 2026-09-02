@@ -50,6 +50,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.swap_horiz_rounded),
+                tooltip: 'My swaps',
+                onPressed: () => context.push('/swaps'),
+              ),
               if (session != null)
                 IconButton(
                   icon: const Icon(Icons.logout_rounded),

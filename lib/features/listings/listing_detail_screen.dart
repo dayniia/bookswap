@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bookswap/core/supabase_client.dart';
 import 'package:bookswap/features/listings/listings_provider.dart';
+import 'package:bookswap/features/swaps/swap_provider.dart';
 
 /// Full-detail view of a single listing, plus a stub swap-request button.
 class ListingDetailScreen extends ConsumerWidget {
@@ -179,31 +180,12 @@ class _ListingBody extends ConsumerWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // Swap request button (wired in Stage 5)
+                // Swap request button
                 if (!isOwner)
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Swap requests coming in Stage 5!'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.swap_horiz_rounded),
-                      label: const Text(
-                        'Request a swap',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
+                  _RequestSwapButton(
+                    listingId: listing['id'] as String,
+                    ownerId: listing['owner_id'] as String,
+                    ref: ref,
                   ),
 
                 if (isOwner)
@@ -296,3 +278,169 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Request swap button — shows existing status or opens message dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RequestSwapButton extends ConsumerWidget {
+  const _RequestSwapButton({
+    required this.listingId,
+    required this.ownerId,
+    required this.ref,
+  });
+
+  final String listingId;
+  final String ownerId;
+  // ignore: unused_field
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final existing = ref.watch(existingRequestProvider(listingId));
+
+    return existing.when(
+      loading: () => const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (request) {
+        final status = request?['status'] as String?;
+
+        // Already requested — show status chip
+        if (status != null && status != 'cancelled') {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: _statusColor(context, status).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: _statusColor(context, status).withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(_statusIcon(status),
+                    color: _statusColor(context, status), size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  _statusText(status),
+                  style: TextStyle(
+                    color: _statusColor(context, status),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // No active request — show request button
+        return SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => _showRequestDialog(context, ref),
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: const Text(
+              'Request a swap',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showRequestDialog(BuildContext context, WidgetRef ref) async {
+    final msgCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Request a swap'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'The owner will see your request and can accept or decline. '
+              'Add an optional message:',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: msgCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'e.g. "I have a similar book to offer…"',
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send request')),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await SwapService.sendRequest(
+          listingId: listingId,
+          ownerId: ownerId,
+          message: msgCtrl.text.trim(),
+        );
+        ref.invalidate(existingRequestProvider(listingId));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Swap request sent! ✓'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to send request: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+      msgCtrl.dispose();
+    }
+  }
+
+  Color _statusColor(BuildContext ctx, String status) => switch (status) {
+        'accepted' => Colors.green.shade700,
+        'declined' => Theme.of(ctx).colorScheme.error,
+        _ => Colors.orange.shade700,
+      };
+
+  IconData _statusIcon(String status) => switch (status) {
+        'accepted' => Icons.check_circle_outline_rounded,
+        'declined' => Icons.cancel_outlined,
+        _ => Icons.hourglass_empty_rounded,
+      };
+
+  String _statusText(String status) => switch (status) {
+        'accepted' => 'Swap accepted!',
+        'declined' => 'Request declined',
+        _ => 'Request pending…',
+      };
+}
+
