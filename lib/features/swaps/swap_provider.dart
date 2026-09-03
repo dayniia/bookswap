@@ -26,9 +26,9 @@ final incomingRequestsProvider =
   final rows = await SupabaseClientProvider.client
       .from('swap_requests')
       .select(
-        'id, status, message, created_at, '
-        'listing_id, listings(title, photo_urls), '
-        'requester_id, profiles!requester_id(display_name)',
+        'id, status, message, created_at, listing_id, requester_id, '
+        'book:listings(title, photo_urls), '
+        'requester:profiles!requester_id(display_name)',
       )
       .eq('owner_id', session.user.id)
       .order('created_at', ascending: false);
@@ -45,9 +45,9 @@ final outgoingRequestsProvider =
   final rows = await SupabaseClientProvider.client
       .from('swap_requests')
       .select(
-        'id, status, message, created_at, '
-        'listing_id, listings(title, photo_urls), '
-        'owner_id, profiles!owner_id(display_name)',
+        'id, status, message, created_at, listing_id, owner_id, '
+        'book:listings(title, photo_urls), '
+        'book_owner:profiles!owner_id(display_name)',
       )
       .eq('requester_id', session.user.id)
       .order('created_at', ascending: false);

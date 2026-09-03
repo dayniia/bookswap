@@ -22,10 +22,10 @@ class SwapsScreen extends ConsumerWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
-            _IncomingTab(ref: ref),
-            _OutgoingTab(ref: ref),
+            _IncomingTab(),
+            _OutgoingTab(),
           ],
         ),
       ),
@@ -36,25 +36,40 @@ class SwapsScreen extends ConsumerWidget {
 // ── Incoming ─────────────────────────────────────────────────────────────────
 
 class _IncomingTab extends ConsumerWidget {
-  const _IncomingTab({required this.ref});
-  // ignore: unused_field
-  final WidgetRef ref;
+  const _IncomingTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final requests = ref.watch(incomingRequestsProvider);
     return requests.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Error loading requests', style: TextStyle(
+                color: Theme.of(context).colorScheme.error)),
+            const SizedBox(height: 8),
+            Text('$e', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => ref.invalidate(incomingRequestsProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
       data: (list) {
-        if (list.isEmpty) return _EmptyState('No incoming swap requests yet');
+        if (list.isEmpty) {
+          return const _EmptyState('No incoming swap requests yet');
+        }
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(incomingRequestsProvider),
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: list.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (ctx, i) => _IncomingCard(request: list[i], ref: ref),
+            itemBuilder: (ctx, i) => _IncomingCard(request: list[i]),
           ),
         );
       },
@@ -62,23 +77,24 @@ class _IncomingTab extends ConsumerWidget {
   }
 }
 
-class _IncomingCard extends StatelessWidget {
-  const _IncomingCard({required this.request, required this.ref});
+class _IncomingCard extends ConsumerWidget {
+  const _IncomingCard({required this.request});
 
   final Map<String, dynamic> request;
-  final WidgetRef ref;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final status = request['status'] as String;
+
+    final status = request['status'] as String? ?? 'pending';
     final requesterName =
-        (request['profiles'] as Map?)?['display_name'] as String? ?? 'Someone';
+        (request['requester'] as Map?)?['display_name'] as String? ?? 'Someone';
     final bookTitle =
-        (request['listings'] as Map?)?['title'] as String? ?? 'a book';
+        (request['book'] as Map?)?['title'] as String? ?? 'a book';
     final message = request['message'] as String?;
     final isPending = status == 'pending';
+    final isAccepted = status == 'accepted';
 
     return Card(
       elevation: 0,
@@ -110,7 +126,7 @@ class _IncomingCard extends StatelessWidget {
                       Text(requesterName,
                           style: theme.textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.bold)),
-                      Text('wants to swap for "$bookTitle"',
+                      Text('wants "$bookTitle"',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: colors.onSurfaceVariant)),
                     ],
@@ -137,8 +153,8 @@ class _IncomingCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => _updateStatus(
-                          context, request['id'] as String, 'declined'),
+                      onPressed: () =>
+                          _updateStatus(context, ref, request['id'] as String, 'declined'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: colors.error,
                         side: BorderSide(color: colors.error),
@@ -151,8 +167,8 @@ class _IncomingCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      onPressed: () => _updateStatus(
-                          context, request['id'] as String, 'accepted'),
+                      onPressed: () =>
+                          _updateStatus(context, ref, request['id'] as String, 'accepted'),
                       style: FilledButton.styleFrom(
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -163,7 +179,7 @@ class _IncomingCard extends StatelessWidget {
                 ],
               ),
             ],
-            if (status == 'accepted') ...[
+            if (isAccepted) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -189,7 +205,7 @@ class _IncomingCard extends StatelessWidget {
   }
 
   Future<void> _updateStatus(
-      BuildContext context, String id, String status) async {
+      BuildContext context, WidgetRef ref, String id, String status) async {
     try {
       await SwapService.updateStatus(id, status);
       ref.invalidate(incomingRequestsProvider);
@@ -209,25 +225,40 @@ class _IncomingCard extends StatelessWidget {
 // ── Outgoing ─────────────────────────────────────────────────────────────────
 
 class _OutgoingTab extends ConsumerWidget {
-  const _OutgoingTab({required this.ref});
-  // ignore: unused_field
-  final WidgetRef ref;
+  const _OutgoingTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final requests = ref.watch(outgoingRequestsProvider);
     return requests.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Error loading requests',
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            const SizedBox(height: 8),
+            Text('$e', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => ref.invalidate(outgoingRequestsProvider),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
       data: (list) {
-        if (list.isEmpty) return _EmptyState('You haven\'t requested any swaps yet');
+        if (list.isEmpty) {
+          return const _EmptyState("You haven't requested any swaps yet");
+        }
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(outgoingRequestsProvider),
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: list.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (ctx, i) => _OutgoingCard(request: list[i], ref: ref),
+            itemBuilder: (ctx, i) => _OutgoingCard(request: list[i]),
           ),
         );
       },
@@ -235,22 +266,23 @@ class _OutgoingTab extends ConsumerWidget {
   }
 }
 
-class _OutgoingCard extends StatelessWidget {
-  const _OutgoingCard({required this.request, required this.ref});
+class _OutgoingCard extends ConsumerWidget {
+  const _OutgoingCard({required this.request});
 
   final Map<String, dynamic> request;
-  final WidgetRef ref;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final status = request['status'] as String;
+
+    final status = request['status'] as String? ?? 'pending';
     final ownerName =
-        (request['profiles'] as Map?)?['display_name'] as String? ?? 'Someone';
+        (request['book_owner'] as Map?)?['display_name'] as String? ?? 'Someone';
     final bookTitle =
-        (request['listings'] as Map?)?['title'] as String? ?? 'a book';
+        (request['book'] as Map?)?['title'] as String? ?? 'a book';
     final isPending = status == 'pending';
+    final isAccepted = status == 'accepted';
 
     return Card(
       elevation: 0,
@@ -286,7 +318,8 @@ class _OutgoingCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => _cancel(context, request['id'] as String),
+                  onPressed: () =>
+                      _cancel(context, ref, request['id'] as String),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: colors.onSurfaceVariant,
                     shape: RoundedRectangleBorder(
@@ -296,7 +329,7 @@ class _OutgoingCard extends StatelessWidget {
                 ),
               ),
             ],
-            if (status == 'accepted') ...[
+            if (isAccepted) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -321,7 +354,8 @@ class _OutgoingCard extends StatelessWidget {
     );
   }
 
-  Future<void> _cancel(BuildContext context, String id) async {
+  Future<void> _cancel(
+      BuildContext context, WidgetRef ref, String id) async {
     try {
       await SwapService.updateStatus(id, 'cancelled');
       ref.invalidate(outgoingRequestsProvider);
@@ -349,7 +383,8 @@ class _EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.swap_horiz_rounded,
-              size: 64, color: colors.onSurfaceVariant.withValues(alpha: 0.4)),
+              size: 64,
+              color: colors.onSurfaceVariant.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
           Text(message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
