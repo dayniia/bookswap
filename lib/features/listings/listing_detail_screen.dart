@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bookswap/core/supabase_client.dart';
 import 'package:bookswap/features/listings/listings_provider.dart';
+import 'package:bookswap/features/ratings/rating_dialog.dart';
 import 'package:bookswap/features/swaps/swap_provider.dart';
 
 /// Full-detail view of a single listing, plus a stub swap-request button.
@@ -173,6 +174,10 @@ class _ListingBody extends ConsumerWidget {
                           Text('Listing owner',
                               style: theme.textTheme.bodySmall?.copyWith(
                                   color: colors.onSurfaceVariant)),
+                          const SizedBox(height: 2),
+                          StarRatingDisplay(
+                            profileId: listing['owner_id'] as String,
+                          ),
                         ],
                       ),
                     ],

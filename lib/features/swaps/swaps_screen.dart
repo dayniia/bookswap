@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bookswap/features/ratings/rating_dialog.dart';
+import 'package:bookswap/features/ratings/rating_provider.dart';
 import 'package:bookswap/features/swaps/swap_provider.dart';
 
 /// Full-page list of incoming and outgoing swap requests.
@@ -179,23 +181,50 @@ class _IncomingCard extends ConsumerWidget {
                 ],
               ),
             ],
-            if (isAccepted) ...[
+            if (isAccepted) ..[
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => context.push(
-                    '/chat/${request['id']}'
-                    '?otherName=${Uri.encodeComponent(requesterName)}'
-                    '&book=${Uri.encodeComponent(bookTitle)}',
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _markSwapped(context, ref,
+                          request['id'] as String,
+                          request['requester_id'] as String,
+                          requesterName, bookTitle),
+                      icon: const Icon(Icons.handshake_outlined, size: 16),
+                      label: const Text('Mark swapped'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
                   ),
-                  icon: const Icon(Icons.chat_rounded, size: 18),
-                  label: const Text('Open chat'),
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => context.push(
+                        '/chat/${request['id']}'
+                        '?otherName=${Uri.encodeComponent(requesterName)}'
+                        '&book=${Uri.encodeComponent(bookTitle)}',
+                      ),
+                      icon: const Icon(Icons.chat_rounded, size: 16),
+                      label: const Text('Chat'),
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ],
+            if (status == 'swapped') ...[
+              const SizedBox(height: 12),
+              _RateButton(
+                swapRequestId: request['id'] as String,
+                ratedUserId: request['requester_id'] as String,
+                ratedUserName: requesterName,
+                ref: ref,
               ),
             ],
           ],
@@ -209,6 +238,54 @@ class _IncomingCard extends ConsumerWidget {
     try {
       await SwapService.updateStatus(id, status);
       ref.invalidate(incomingRequestsProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _markSwapped(
+    BuildContext context,
+    WidgetRef ref,
+    String swapId,
+    String otherUserId,
+    String otherUserName,
+    String bookTitle,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Mark as swapped?'),
+        content: Text('Confirm that you have exchanged "$bookTitle" with $otherUserName.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirm')),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
+    try {
+      await RatingService.markAsSwapped(swapId);
+      ref.invalidate(incomingRequestsProvider);
+      if (context.mounted) {
+        await RatingDialog.show(
+          context,
+          swapRequestId: swapId,
+          ratedUserId: otherUserId,
+          ratedUserName: otherUserName,
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -331,21 +408,33 @@ class _OutgoingCard extends ConsumerWidget {
             ],
             if (isAccepted) ...[
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => context.push(
-                    '/chat/${request['id']}'
-                    '?otherName=${Uri.encodeComponent(ownerName)}'
-                    '&book=${Uri.encodeComponent(bookTitle)}',
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => context.push(
+                        '/chat/${request['id']}'
+                        '?otherName=${Uri.encodeComponent(ownerName)}'
+                        '&book=${Uri.encodeComponent(bookTitle)}',
+                      ),
+                      icon: const Icon(Icons.chat_rounded, size: 16),
+                      label: const Text('Chat'),
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
                   ),
-                  icon: const Icon(Icons.chat_rounded, size: 18),
-                  label: const Text('Open chat'),
-                  style: FilledButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
+                ],
+              ),
+            ],
+            if (status == 'swapped') ...[
+              const SizedBox(height: 12),
+              _RateButton(
+                swapRequestId: request['id'] as String,
+                ratedUserId: request['owner_id'] as String,
+                ratedUserName: ownerName,
+                ref: ref,
               ),
             ],
           ],
@@ -404,6 +493,7 @@ class _StatusBadge extends StatelessWidget {
   Color _color(BuildContext context) => switch (status) {
         'pending' => Colors.orange.shade700,
         'accepted' => Colors.green.shade700,
+        'swapped' => Colors.blue.shade700,
         'declined' => Theme.of(context).colorScheme.error,
         _ => Theme.of(context).colorScheme.onSurfaceVariant,
       };
@@ -426,3 +516,72 @@ class _StatusBadge extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rate button — checks if already rated, shows dialog or "Rated ✓"
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RateButton extends ConsumerWidget {
+  const _RateButton({
+    required this.swapRequestId,
+    required this.ratedUserId,
+    required this.ratedUserName,
+    required this.ref,
+  });
+
+  final String swapRequestId;
+  final String ratedUserId;
+  final String ratedUserName;
+  // ignore: unused_field
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasRated = ref.watch(hasRatedProvider(swapRequestId));
+    return hasRated.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (rated) {
+        if (rated) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_rounded,
+                  size: 16, color: Colors.green.shade700),
+              const SizedBox(width: 6),
+              Text(
+                'You rated this swap',
+                style: TextStyle(
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          );
+        }
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              await RatingDialog.show(
+                context,
+                swapRequestId: swapRequestId,
+                ratedUserId: ratedUserId,
+                ratedUserName: ratedUserName,
+              );
+              ref.invalidate(hasRatedProvider(swapRequestId));
+            },
+            icon: const Icon(Icons.star_outline_rounded, size: 16),
+            label: Text('Rate $ratedUserName'),
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+

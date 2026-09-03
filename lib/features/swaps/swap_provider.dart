@@ -11,6 +11,7 @@ const swapStatusLabels = {
   'accepted': 'Accepted',
   'declined': 'Declined',
   'cancelled': 'Cancelled',
+  'swapped': 'Swapped ✓',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
